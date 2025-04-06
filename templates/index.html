@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LUFS Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/static/css/styles.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>LUFS Analyzer</h1>
+        
+        <div class="card">
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="file-upload-container">
+                    <input type="file" id="file" name="file" accept=".wav">
+                    <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                    <div class="file-upload-text">Drag & drop your WAV file or click to browse</div>
+                    <div class="file-name" id="file-name"></div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="target_lufs">Target LUFS (dB)</label>
+                        <input type="number" id="target_lufs" name="target_lufs" value="-14" step="0.1">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="compression">Apply Compression</label>
+                        <input type="checkbox" id="compression" name="compression" class="button">
+                        <button type="button" id="compression-info-btn" class="info-button">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="compression-info" class="info-box hidden">
+                    <p>Compression reduces the dynamic range of audio by attenuating loud parts.</p>
+                    <ul>
+                        <li><strong>Threshold:</strong> Level at which compression begins (dB)</li>
+                        <li><strong>Ratio:</strong> Amount of compression applied</li>
+                        <li><strong>Attack:</strong> How quickly compression is applied (ms)</li>
+                        <li><strong>Release:</strong> How quickly compression is removed (ms)</li>
+                    </ul>
+                </div>
+
+                <div id="compression-options" class="options-container" style="display: none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="threshold">Threshold (dB)</label>
+                            <input type="number" id="threshold" name="threshold" value="-20" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label for="ratio">Ratio</label>
+                            <input type="number" id="ratio" name="ratio" value="4" step="0.1">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="attack">Attack (ms)</label>
+                            <input type="number" id="attack" name="attack" value="3.1" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="release">Release (ms)</label>
+                            <input type="number" id="release" name="release" value="100" step="1">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="noise_reduction">Apply Noise Reduction</label>
+                    <input type="checkbox" id="noise_reduction" name="noise_reduction" class="button">
+                    <button type="button" id="noise_reduction_info_btn" class="info-button">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
+
+                <div id="noise_reduction_info" class="info-box hidden">
+                    <p>Noise reduction removes background noise from your audio.</p>
+                    <ul>
+                        <li><strong>Strength:</strong> How aggressively noise is reduced (higher values remove more noise but may affect audio quality)</li>
+                    </ul>
+                </div>
+
+                <div id="noise_reduction_options" class="options-container" style="display: none;">
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Strength</span>
+                            <span id="noise_strength_value">0.5</span>
+                        </div>
+                        <input type="range" id="noise_strength" name="noise_strength" min="0.1" max="1.0" step="0.1" value="0.5">
+                    </div>
+                </div>
+                
+                <button type="submit" id="upload-button" class="button">
+                    <span id="spinner" class="spinner"></span>
+                    <span id="button-text">Analyze Audio</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Results section -->
+        <div id="results" class="mt-8 p-6 bg-white rounded-lg shadow-md" style="display: none;">
+            <h2 class="text-xl font-semibold mb-4">Analysis Results</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Original LUFS -->
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="text-lg font-medium mb-2">Original Audio</h3>
+                    <p class="mb-4">Integrated Loudness: <span id="lufs-value" class="font-semibold">N/A</span></p>
+                    <div class="h-64 relative">
+                        <canvas id="original-graph" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Processed LUFS -->
+                <div id="processed-lufs-container" class="p-4 bg-gray-50 rounded-lg">
+                    <h3 class="text-lg font-medium mb-2">Processed Audio</h3>
+                    <p class="mb-4">Integrated Loudness: <span id="processed-lufs-value" class="font-semibold">N/A</span></p>
+                    <div id="processed-graph-container" class="h-64 relative">
+                        <canvas id="processed-graph" class="w-full h-full"></canvas>
+                    </div>
+                    <div class="mt-4">
+                        <a id="download-link" href="#" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700" style="display: none;">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Download Processed Audio
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/script.js"></script>
+    <script>
+        // Display filename when selected
+        document.getElementById('file').addEventListener('change', function(e) {
+            const fileName = e.target.files[0] ? e.target.files[0].name : '';
+            document.getElementById('file-name').textContent = fileName;
+        });
+    </script>
+</body>
+</html>
+
