@@ -3,7 +3,7 @@ import sys
 import os
 
 # Add your project directory to the Python path
-path = '/home/yourusername/mysite'
+path = './app.py'
 if path not in sys.path:
     sys.path.append(path)
 
